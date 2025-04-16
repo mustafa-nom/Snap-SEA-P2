@@ -23,75 +23,117 @@
  *
  */
 
-const FRESH_PRINCE_URL =
-  "https://upload.wikimedia.org/wikipedia/en/3/33/Fresh_Prince_S1_DVD.jpg";
-const CURB_POSTER_URL =
-  "https://m.media-amazon.com/images/M/MV5BZDY1ZGM4OGItMWMyNS00MDAyLWE2Y2MtZTFhMTU0MGI5ZDFlXkEyXkFqcGdeQXVyMDc5ODIzMw@@._V1_FMjpg_UX1000_.jpg";
-const EAST_LOS_HIGH_POSTER_URL =
-  "https://static.wikia.nocookie.net/hulu/images/6/64/East_Los_High.jpg";
+// This calls the addCards() function when the page is first loaded
+//document.addEventListener("DOMContentLoaded", showCards);
+//html file ready --> load every player
+//NOTE: add filter by bday & search players
+let players = [];
+let sortedPlayers = [];
+let currentCardIdx = 0;
+const cardLoadSize = 16;
 
-// This is an array of strings (TV show titles)
-let titles = [
-  "Fresh Prince of Bel Air",
-  "Curb Your Enthusiasm",
-  "East Los High",
-];
-// Your final submission should have much more data than this, and
-// you should use more than just an array of strings to store it all.
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const response = await fetch("players.json");
+    players = await response.json();
+    sortedPlayers = [...players];
+    showMorePlayers(); //first 10 players loaded
 
-// This function adds cards the page to display the data in the array
-function showCards() {
-  const cardContainer = document.getElementById("card-container");
-  cardContainer.innerHTML = "";
-  const templateCard = document.querySelector(".card");
-
-  for (let i = 0; i < titles.length; i++) {
-    let title = titles[i];
-
-    // This part of the code doesn't scale very well! After you add your
-    // own data, you'll need to do something totally different here.
-    let imageURL = "";
-    if (i == 0) {
-      imageURL = FRESH_PRINCE_URL;
-    } else if (i == 1) {
-      imageURL = CURB_POSTER_URL;
-    } else if (i == 2) {
-      imageURL = EAST_LOS_HIGH_POSTER_URL;
-    }
-
-    const nextCard = templateCard.cloneNode(true); // Copy the template card
-    editCardContent(nextCard, title, imageURL); // Edit title and image
-    cardContainer.appendChild(nextCard); // Add new card to the container
+    //lazy load when they scroll to bottom
+    window.addEventListener("scroll", () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
+        showMorePlayers();
+      }
+    });
+  } catch(error) {
+    console.error("Error loading players chat:", error);
   }
+});
+
+function showMorePlayers() {
+  //base case: check for invalid idx
+  if(currentCardIdx >= sortedPlayers.length) return;
+  
+  const container = document.getElementById("card-container");
+  const template = document.querySelector(".card");
+
+  //load next batch of cards thru new arr --> clone template & update to page
+  const nextPlayerCards = sortedPlayers.slice(currentCardIdx, currentCardIdx + cardLoadSize);
+  nextPlayerCards.forEach(
+    (player) => {
+    const card = template.cloneNode(true);
+    card.style.display = "block";
+    editCardContent(card, player);
+    container.appendChild(card);
+  });
+
+  currentCardIdx += cardLoadSize;
 }
 
-function editCardContent(card, newTitle, newImageURL) {
+function editCardContent(card, player) {
   card.style.display = "block";
 
   const cardHeader = card.querySelector("h2");
-  cardHeader.textContent = newTitle;
+  cardHeader.textContent = `${player.fname} ${player.lname}`;
 
   const cardImage = card.querySelector("img");
-  cardImage.src = newImageURL;
-  cardImage.alt = newTitle + " Poster";
+  cardImage.src = `img/${player.playerid}.png`;
+  cardImage.alt = `${player.fname} ${player.lname} basetball photo`;
+
+  const ul = card.querySelector("ul");
+  ul.innerHTML = `
+    <li><strong>Position:</strong> ${player.position}</li>
+    <li><strong>Height:</strong> ${player.height}</li>
+    <li><strong>Weight:</strong> ${player.weight} lbs</li>
+    <li><strong>Birthday:</strong> ${player.birthday}</li>
+  `;
 
   // You can use console.log to help you debug!
   // View the output by right clicking on your website,
   // select "Inspect", then click on the "Console" tab
-  console.log("new card:", newTitle, "- html: ", card);
+  console.log("new basketball player card:", player.fname + player.lname, "- html: ", card);
 }
 
-// This calls the addCards() function when the page is first loaded
-document.addEventListener("DOMContentLoaded", showCards);
+document.getElementById("search").addEventListener("input", (inputStr) => {
+  const userSearchStr = inputStr.target.value.toLowerCase();
+  const container = document.getElementById("card-container");
+  container.innerHTML = "";
+
+  const filteredPlayers = sortedPlayers.filter((player) =>
+    (`${player.fname} ${player.lname}`.toLowerCase().includes(userSearchStr))
+  );
+
+  //reset idx so lazy loading works again!! --> add filtered cards to DOM
+  currentCardIdx = 0;
+  filteredPlayers.forEach((player) => {
+    const card = document.querySelector(".card").cloneNode(true);
+    card.style.display = "block";
+    editCardContent(card, player);
+    container.appendChild(card);
+  });
+});
+
+document.getElementById("sort-selection").addEventListener("change", (currSelection) => {
+  const selected = currSelection.target.value;
+  const sorted = [...players]; //note: array must be copied since we don't need to change original arr
+
+  if (selected === "youngest") {
+    sorted.sort((a, b) => new Date(b.birthday) - new Date(a.birthday));
+  } else if (selected === "oldest") {
+    sorted.sort((a, b) => new Date(a.birthday) - new Date(b.birthday));
+  }
+
+  //point copy sorted array to sorted array based on selection
+  sortedPlayers = sorted;
+  const container = document.getElementById("card-container");
+  container.innerHTML = "";
+  currentCardIdx = 0;
+  showMorePlayers();
+});
 
 function quoteAlert() {
   console.log("Button Clicked!");
   alert(
-    "I guess I can kiss heaven goodbye, because it got to be a sin to look this good!"
+    "BLOCKED BY LEBRON"
   );
-}
-
-function removeLastCard() {
-  titles.pop(); // Remove last item in titles array
-  showCards(); // Call showCards again to refresh
 }
